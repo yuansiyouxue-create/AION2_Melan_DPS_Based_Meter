@@ -2198,6 +2198,24 @@ body.mainPlayerDpsBold .meter .item .content .dps {
   text-align: right;
   justify-content: flex-end;
 }
+/* 视图切换: 输出(红) / 治疗(绿), 与 DPS/TARGET 同款干净文字按钮 */
+.footerBtns .viewModeBtn {
+  width: auto;
+  height: auto;
+  min-width: 34px;
+  padding: 0 2px;
+  border: none;
+  background: transparent;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  justify-content: center;
+  color: #ff5252;
+}
+.footerBtns .viewModeBtn.isHealing {
+  color: #3ddc84;
+}
 
 .settingsPanel.isOpen {
   display: flex;
