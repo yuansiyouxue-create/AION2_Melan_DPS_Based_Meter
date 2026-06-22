@@ -32,6 +32,7 @@ class DpsApp {
       defaultMeterMode: "dpsMeter.defaultMeterMode",
       targetSelection: "dpsMeter.targetSelection",
       displayMode: "dpsMeter.displayMode",
+      viewMode: "dpsMeter.viewMode",
       language: "dpsMeter.language",
       debugLogging: "dpsMeter.debugLoggingEnabled",
       pinMeToTop: "dpsMeter.pinMeToTop",
@@ -54,6 +55,8 @@ class DpsApp {
     this.isCollapse = false;
     this._windowHidden = false;
     this.displayMode = "dps";
+    // 视图: output=输出, healing=治疗(治愈量, 独立治愈桶)
+    this.viewMode = "output";
     this.theme = "aion2";
     this.availableThemes = [
       "aion2",
@@ -209,6 +212,7 @@ class DpsApp {
     this.targetModeBtn = document.querySelector(".footerBtns .targetModeBtn");
     this.collapseBtn = document.querySelector(".collapseBtn");
     this.metricToggleBtn = document.querySelector(".metricToggleBtn");
+    this.viewModeBtn = document.querySelector(".viewModeBtn");
 
     this.bindHeaderButtons();
     this.bindDragToMoveWindow();
@@ -426,6 +430,10 @@ class DpsApp {
 
     const storedDisplayMode = this.safeGetStorage(this.storageKeys.displayMode);
     this.setDisplayMode(storedDisplayMode || this.displayMode, { persist: false });
+
+    const storedViewMode = this.safeGetStorage(this.storageKeys.viewMode);
+    this.viewMode = storedViewMode === "healing" ? "healing" : "output";
+    this.updateViewModeLabel();
 
     this.historyUI = typeof createHistoryUI === "function"
       ? createHistoryUI({
@@ -1021,6 +1029,8 @@ class DpsApp {
       const dpsRaw = isObj ? value.dps : value;
       const dps = Math.trunc(Number(dpsRaw));
       const totalDamage = Math.trunc(Number(isObj ? value.amount : 0));
+      const heal = Math.trunc(Number(isObj ? value.heal : 0)) || 0;
+      const healDps = Math.trunc(Number(isObj ? value.healDps : 0)) || 0;
 
       // 소수점 한자리
       const contribRaw = isObj ? Number(value.damageContribution) : NaN;
@@ -1038,6 +1048,8 @@ class DpsApp {
         job,
         dps,
         totalDamage,
+        heal,
+        healDps,
         damageContribution,
         isUser: name === this.USER_NAME,
         isIdentifying,
@@ -1663,6 +1675,13 @@ class DpsApp {
       this.setDisplayMode(nextMode, { persist: true });
       this.renderCurrentRows();
     });
+    this.viewModeBtn?.addEventListener("click", () => {
+      this.viewMode = this.viewMode === "healing" ? "output" : "healing";
+      this.safeSetStorage(this.storageKeys.viewMode, this.viewMode);
+      this.updateViewModeLabel();
+      this.renderCurrentRows();
+    });
+    this.updateViewModeLabel();
     this.logoBtn?.addEventListener("click", () => {
       this.captureMainMeterScreenshot();
     });
@@ -3158,6 +3177,14 @@ class DpsApp {
     this.updateDisplayToggleLabel();
   }
 
+  updateViewModeLabel() {
+    if (!this.viewModeBtn) return;
+    const healing = this.viewMode === "healing";
+    this.viewModeBtn.textContent = healing ? "治疗" : "输出";
+    this.viewModeBtn.setAttribute("aria-label", healing ? "Showing healing" : "Showing damage");
+    this.viewModeBtn.classList.toggle("isHealing", healing);
+  }
+
   updateDisplayToggleLabel() {
     if (!this.metricToggleBtn) return;
     const label =
@@ -3232,6 +3259,16 @@ class DpsApp {
   }
 
   getMetricForRow(row) {
+    const suffix = this.i18n?.t("meter.dpsSuffix", "/s") ?? "/s";
+    // 治疗视图: 显示治愈量(总量/秒量), 与伤害完全分离
+    if (this.viewMode === "healing") {
+      if (this.displayMode === "totalDamage") {
+        const heal = Number(row?.heal) || 0;
+        return { value: heal, text: this.formatAbbreviatedNumber(heal) };
+      }
+      const healDps = Number(row?.healDps) || 0;
+      return { value: healDps, text: `${this.dpsFormatter.format(healDps)}${suffix}` };
+    }
     if (this.displayMode === "totalDamage") {
       const totalDamage = Number(row?.totalDamage) || 0;
       return {
@@ -3242,7 +3279,7 @@ class DpsApp {
     const dps = Number(row?.dps) || 0;
     return {
       value: dps,
-      text: `${this.dpsFormatter.format(dps)}${this.i18n?.t("meter.dpsSuffix", "/s") ?? "/s"}`,
+      text: `${this.dpsFormatter.format(dps)}${suffix}`,
     };
   }
 

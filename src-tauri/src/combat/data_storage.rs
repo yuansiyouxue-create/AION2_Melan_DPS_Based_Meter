@@ -276,6 +276,31 @@ impl DataStorage {
             return;
         }
 
+        // Healing skills: the heal value arrives as "damage" carrying a heal
+        // skill code. Route it to the caster's heal bucket and DON'T let it count
+        // as output damage. Matched by class+skill family so all ranks are caught.
+        if is_heal_skill(skill_code) {
+            let heal_amount = pdp.total_damage() as i64;
+            if heal_amount > 0 {
+                let timestamp = pdp.timestamp();
+                let job = JobClass::convert_from_skill(skill_code);
+                if let Some(j) = job {
+                    inner.actor_jobs.entry(actor_id).or_insert(j);
+                }
+                let td = inner.target_combat.entry(target_id)
+                    .or_insert_with(|| TargetCombatData::new(target_id, timestamp));
+                let ad = td.actors.entry(actor_id).or_insert_with(ActorCombatData::new);
+                ad.party_heal += heal_amount;
+                if ad.job.is_none() {
+                    ad.job = job;
+                }
+                if ad.last_damage_time < timestamp {
+                    ad.last_damage_time = timestamp;
+                }
+            }
+            return;
+        }
+
         // Track hostile targets
         let resolved = summon_resolver::resolve(actor_id, &inner.summon_storage);
         if inner.known_player_ids.contains(&resolved) {
@@ -724,6 +749,17 @@ fn apply_pending_nickname(inner: &mut Inner, uid: i32) {
     if let Some(pending) = inner.pending_nicknames.remove(&uid) {
         append_nickname_inner(inner, uid, &pending);
     }
+}
+
+/// Heal skills carry their value in the damage field with a heal skill code.
+/// Matched by class+skill family (skill_code / 10000) so every rank is covered:
+///   Cleric(17):  重生之光 1709, 治愈之光 1710, 痊愈光辉 1712, 生命权能 1716, 免罪 1729
+///   Chanter(18): 痊愈咒语 1812, 痊愈之手 1817, 守护祝福 1842
+fn is_heal_skill(skill_code: i32) -> bool {
+    matches!(
+        skill_code / 10000,
+        1709 | 1710 | 1712 | 1716 | 1729 | 1812 | 1817 | 1842
+    )
 }
 
 fn is_friendly_action(inner: &Inner, actor_id: i32, target_id: i32) -> bool {

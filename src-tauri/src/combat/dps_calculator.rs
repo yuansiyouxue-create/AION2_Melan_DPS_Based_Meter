@@ -150,11 +150,13 @@ impl DpsCalculator {
 
         // Collect actors from selected targets
         let mut combined_actors: HashMap<i32, i64> = HashMap::new();
+        let mut combined_heal: HashMap<i32, i64> = HashMap::new();
         let mut combined_jobs: HashMap<i32, Option<JobClass>> = HashMap::new();
         for &tid in &target_ids {
             if let Some(target_data) = combat_data.get(&tid) {
                 for (&actor_id, actor_data) in &target_data.actors {
                     *combined_actors.entry(actor_id).or_insert(0) += actor_data.total_damage;
+                    *combined_heal.entry(actor_id).or_insert(0) += actor_data.party_heal;
                     if actor_data.job.is_some() && combined_jobs.get(&actor_id).and_then(|j| j.as_ref()).is_none() {
                         combined_jobs.insert(actor_id, actor_data.job);
                     }
@@ -217,6 +219,7 @@ impl DpsCalculator {
             }
 
             entry.amount += damage as f64;
+            entry.heal += *combined_heal.get(&actor_id).unwrap_or(&0) as f64;
 
             if entry.job.is_empty() {
                 if let Some(job) = combined_jobs.get(&actor_id).and_then(|j| *j) {
@@ -279,6 +282,7 @@ impl DpsCalculator {
             }
             data.dps = data.amount / bt as f64 * 1000.0;
             data.damage_contribution = data.amount / total_damage * 100.0;
+            data.heal_dps = data.heal / bt as f64 * 1000.0;
         }
         for uid in to_remove {
             dps_data.map.remove(&uid);

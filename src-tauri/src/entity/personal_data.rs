@@ -12,6 +12,10 @@ pub struct PersonalData {
     pub dps: f64,
     pub amount: f64,
     pub damage_contribution: f64,
+    /// Total healing this player did (heal-skill amounts, kept out of damage).
+    pub heal: f64,
+    /// Healing per second (heal / battle_time).
+    pub heal_dps: f64,
     #[serde(skip)]
     pub analyzed_data: HashMap<i32, AnalyzedSkill>,
     pub nickname: String,
@@ -24,6 +28,8 @@ impl PersonalData {
             dps: 0.0,
             amount: 0.0,
             damage_contribution: 0.0,
+            heal: 0.0,
+            heal_dps: 0.0,
             analyzed_data: HashMap::new(),
             nickname,
         }
@@ -35,6 +41,8 @@ impl PersonalData {
             dps: 0.0,
             amount: 0.0,
             damage_contribution: 0.0,
+            heal: 0.0,
+            heal_dps: 0.0,
             analyzed_data: HashMap::new(),
             nickname,
         }
